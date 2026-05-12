@@ -37,6 +37,13 @@ async def async_setup_entry(
         Last7DaysSensor(coordinator=coordinator, mprn=mprn),
         ThisMonthSensor(coordinator=coordinator, mprn=mprn),
         Last30DaysSensor(coordinator=coordinator, mprn=mprn),
+        # Grid export sensors (for microgen/solar accounts)
+        ExportedTodaySensor(coordinator=coordinator, mprn=mprn),
+        ExportedLast24HoursSensor(coordinator=coordinator, mprn=mprn),
+        ExportedThisWeekSensor(coordinator=coordinator, mprn=mprn),
+        ExportedLast7DaysSensor(coordinator=coordinator, mprn=mprn),
+        ExportedThisMonthSensor(coordinator=coordinator, mprn=mprn),
+        ExportedLast30DaysSensor(coordinator=coordinator, mprn=mprn),
         # Diagnostic sensors
         LastUpdateSensor(coordinator=coordinator, mprn=mprn),
         ApiStatusSensor(coordinator=coordinator, mprn=mprn),
@@ -192,6 +199,114 @@ class Last30DaysSensor(BaseSensor):
     def _get_data(self, *, esb_data: ESBData) -> float:
         """Get last 30 days data."""
         return esb_data.last_30_days
+
+
+class BaseExportedSensor(BaseSensor):
+    """Base sensor for grid export readings."""
+
+    _attr_icon = "mdi:transmission-tower-export"
+
+
+class ExportedTodaySensor(BaseExportedSensor):
+    """Sensor for today's electricity exported to the grid."""
+
+    def __init__(self, *, coordinator: ESBDataUpdateCoordinator, mprn: str) -> None:
+        """Initialize the sensor."""
+        super().__init__(
+            coordinator=coordinator,
+            mprn=mprn,
+            name="ESB Electricity Exported: Today",
+        )
+        self._attr_unique_id = f"{mprn}_exported_today"
+
+    def _get_data(self, *, esb_data: ESBData) -> float:
+        """Get today's exported data."""
+        return esb_data.exported_today
+
+
+class ExportedLast24HoursSensor(BaseExportedSensor):
+    """Sensor for last 24 hours electricity exported to the grid."""
+
+    def __init__(self, *, coordinator: ESBDataUpdateCoordinator, mprn: str) -> None:
+        """Initialize the sensor."""
+        super().__init__(
+            coordinator=coordinator,
+            mprn=mprn,
+            name="ESB Electricity Exported: Last 24 Hours",
+        )
+        self._attr_unique_id = f"{mprn}_exported_last_24_hours"
+
+    def _get_data(self, *, esb_data: ESBData) -> float:
+        """Get last 24 hours exported data."""
+        return esb_data.exported_last_24_hours
+
+
+class ExportedThisWeekSensor(BaseExportedSensor):
+    """Sensor for this week's electricity exported to the grid."""
+
+    def __init__(self, *, coordinator: ESBDataUpdateCoordinator, mprn: str) -> None:
+        """Initialize the sensor."""
+        super().__init__(
+            coordinator=coordinator,
+            mprn=mprn,
+            name="ESB Electricity Exported: This Week",
+        )
+        self._attr_unique_id = f"{mprn}_exported_this_week"
+
+    def _get_data(self, *, esb_data: ESBData) -> float:
+        """Get this week's exported data."""
+        return esb_data.exported_this_week
+
+
+class ExportedLast7DaysSensor(BaseExportedSensor):
+    """Sensor for last 7 days electricity exported to the grid."""
+
+    def __init__(self, *, coordinator: ESBDataUpdateCoordinator, mprn: str) -> None:
+        """Initialize the sensor."""
+        super().__init__(
+            coordinator=coordinator,
+            mprn=mprn,
+            name="ESB Electricity Exported: Last 7 Days",
+        )
+        self._attr_unique_id = f"{mprn}_exported_last_7_days"
+
+    def _get_data(self, *, esb_data: ESBData) -> float:
+        """Get last 7 days exported data."""
+        return esb_data.exported_last_7_days
+
+
+class ExportedThisMonthSensor(BaseExportedSensor):
+    """Sensor for this month's electricity exported to the grid."""
+
+    def __init__(self, *, coordinator: ESBDataUpdateCoordinator, mprn: str) -> None:
+        """Initialize the sensor."""
+        super().__init__(
+            coordinator=coordinator,
+            mprn=mprn,
+            name="ESB Electricity Exported: This Month",
+        )
+        self._attr_unique_id = f"{mprn}_exported_this_month"
+
+    def _get_data(self, *, esb_data: ESBData) -> float:
+        """Get this month's exported data."""
+        return esb_data.exported_this_month
+
+
+class ExportedLast30DaysSensor(BaseExportedSensor):
+    """Sensor for last 30 days electricity exported to the grid."""
+
+    def __init__(self, *, coordinator: ESBDataUpdateCoordinator, mprn: str) -> None:
+        """Initialize the sensor."""
+        super().__init__(
+            coordinator=coordinator,
+            mprn=mprn,
+            name="ESB Electricity Exported: Last 30 Days",
+        )
+        self._attr_unique_id = f"{mprn}_exported_last_30_days"
+
+    def _get_data(self, *, esb_data: ESBData) -> float:
+        """Get last 30 days exported data."""
+        return esb_data.exported_last_30_days
 
 
 class LastUpdateSensor(SensorEntity):
