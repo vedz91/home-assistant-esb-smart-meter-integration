@@ -40,15 +40,16 @@ def mock_aiohttp_session():
 
 @pytest.fixture
 def sample_csv_data():
-    """Sample CSV data for testing."""
+    """Sample CSV data with both import and export readings."""
     now = datetime.now()
     csv_lines = ["Read Date and End Time,Read Value,Read Type,MPRN"]
 
-    # Add data for last 30 days
+    # Add data for last 30 days - both import and export rows per day
     for i in range(30):
         date = now - timedelta(days=i)
         date_str = date.strftime("%d-%m-%Y %H:%M")
         csv_lines.append(f"{date_str},1.5,Active Import,12345678901")
+        csv_lines.append(f"{date_str},0.8,Active Export,12345678901")
 
     return "\n".join(csv_lines)
 
