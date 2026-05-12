@@ -12,7 +12,14 @@ from custom_components.esb_smart_meter.const import DOMAIN
 from custom_components.esb_smart_meter.models import ESBData
 from custom_components.esb_smart_meter.sensor import (
     ApiStatusSensor,
+    CircuitBreakerStatusSensor,
     DataAgeSensor,
+    ExportedLast7DaysSensor,
+    ExportedLast24HoursSensor,
+    ExportedLast30DaysSensor,
+    ExportedThisMonthSensor,
+    ExportedThisWeekSensor,
+    ExportedTodaySensor,
     Last7DaysSensor,
     Last24HoursSensor,
     Last30DaysSensor,
@@ -75,29 +82,35 @@ class TestAsyncSetupEntry:
 
     @pytest.mark.asyncio
     async def test_setup_entry_creates_all_sensors(self, mock_hass, mock_config_entry):
-        """Test that setup_entry creates all 10 sensors (including circuit breaker)."""
+        """Test that setup_entry creates all 16 sensors."""
         async_add_entities = MagicMock()
 
         await async_setup_entry(mock_hass, mock_config_entry, async_add_entities)
 
-        # Verify 10 sensors were created (6 data + 4 diagnostic sensors)
+        # Verify 16 sensors were created (6 import + 6 export + 4 diagnostic)
         assert async_add_entities.called
         sensors = async_add_entities.call_args[0][0]
-        assert len(sensors) == 10
+        assert len(sensors) == 16
 
-        # Verify sensor types
+        # Consumption sensors
         assert isinstance(sensors[0], TodaySensor)
         assert isinstance(sensors[1], Last24HoursSensor)
         assert isinstance(sensors[2], ThisWeekSensor)
         assert isinstance(sensors[3], Last7DaysSensor)
         assert isinstance(sensors[4], ThisMonthSensor)
         assert isinstance(sensors[5], Last30DaysSensor)
+        # Grid export sensors
+        assert isinstance(sensors[6], ExportedTodaySensor)
+        assert isinstance(sensors[7], ExportedLast24HoursSensor)
+        assert isinstance(sensors[8], ExportedThisWeekSensor)
+        assert isinstance(sensors[9], ExportedLast7DaysSensor)
+        assert isinstance(sensors[10], ExportedThisMonthSensor)
+        assert isinstance(sensors[11], ExportedLast30DaysSensor)
         # Diagnostic sensors
-        assert isinstance(sensors[6], LastUpdateSensor)
-        assert isinstance(sensors[7], ApiStatusSensor)
-        assert isinstance(sensors[8], DataAgeSensor)
-        assert isinstance(sensors[4], ThisMonthSensor)
-        assert isinstance(sensors[5], Last30DaysSensor)
+        assert isinstance(sensors[12], LastUpdateSensor)
+        assert isinstance(sensors[13], ApiStatusSensor)
+        assert isinstance(sensors[14], DataAgeSensor)
+        assert isinstance(sensors[15], CircuitBreakerStatusSensor)
 
 
 class TestBaseSensor:
@@ -309,6 +322,35 @@ class TestLast30DaysSensor:
 
         result = sensor._get_data(esb_data=esb_data)
         assert result == 520.6
+
+
+class TestExportedSensors:
+    """Test the six grid-export sensors."""
+
+    @pytest.fixture
+    def mock_coordinator(self):
+        """Create mock coordinator."""
+        return MagicMock(spec=DataUpdateCoordinator)
+
+    @pytest.mark.parametrize(
+        "sensor_cls,unique_suffix,data_attr,value",
+        [
+            (ExportedTodaySensor, "exported_today", "exported_today", 1.1),
+            (ExportedLast24HoursSensor, "exported_last_24_hours", "exported_last_24_hours", 2.2),
+            (ExportedThisWeekSensor, "exported_this_week", "exported_this_week", 3.3),
+            (ExportedLast7DaysSensor, "exported_last_7_days", "exported_last_7_days", 4.4),
+            (ExportedThisMonthSensor, "exported_this_month", "exported_this_month", 5.5),
+            (ExportedLast30DaysSensor, "exported_last_30_days", "exported_last_30_days", 6.6),
+        ],
+    )
+    def test_unique_id_and_get_data(self, mock_coordinator, sensor_cls, unique_suffix, data_attr, value):
+        sensor = sensor_cls(coordinator=mock_coordinator, mprn="12345678901")
+        assert sensor._attr_unique_id == f"12345678901_{unique_suffix}"
+        assert sensor._attr_icon == "mdi:transmission-tower-export"
+
+        esb_data = MagicMock()
+        setattr(esb_data, data_attr, value)
+        assert sensor._get_data(esb_data=esb_data) == value
 
 
 class TestLastUpdateSensor:
