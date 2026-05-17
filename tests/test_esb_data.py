@@ -308,3 +308,30 @@ class TestESBData:
         assert esb_data.exported_last_7_days >= 7.0  # 1.0 + 2.0 + 4.0
         assert esb_data.exported_this_month >= 6.0  # 1.0 + 5.0 at minimum
         assert esb_data.exported_last_30_days >= 15.0  # all 5 export rows within 30d
+
+    def test_latest_reading_time(self):
+        """latest_reading_time returns the most recent timestamp across import and export rows."""
+        now = datetime.now().replace(second=0, microsecond=0)
+        older = now - timedelta(hours=2)
+        data = [
+            {"Read Date and End Time": older.strftime("%d-%m-%Y %H:%M"), "Read Value": "1.0"},
+            {"Read Date and End Time": now.strftime("%d-%m-%Y %H:%M"), "Read Value": "2.0"},
+        ]
+        esb_data = ESBData(data=data)
+        assert esb_data.latest_reading_time == now
+
+    def test_latest_reading_time_picks_across_import_and_export(self):
+        """latest_reading_time considers both import and export rows."""
+        now = datetime.now().replace(second=0, microsecond=0)
+        older = now - timedelta(hours=1)
+        data = [
+            {"Read Date and End Time": older.strftime("%d-%m-%Y %H:%M"), "Read Value": "1.0", "Read Type": "Active Import"},
+            {"Read Date and End Time": now.strftime("%d-%m-%Y %H:%M"), "Read Value": "0.5", "Read Type": "Active Export"},
+        ]
+        esb_data = ESBData(data=data)
+        assert esb_data.latest_reading_time == now
+
+    def test_latest_reading_time_empty(self):
+        """latest_reading_time returns None when there is no data."""
+        esb_data = ESBData(data=[])
+        assert esb_data.latest_reading_time is None

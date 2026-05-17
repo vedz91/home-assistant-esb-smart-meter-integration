@@ -46,6 +46,7 @@ async def async_setup_entry(
         ExportedLast30DaysSensor(coordinator=coordinator, mprn=mprn),
         # Diagnostic sensors
         LastUpdateSensor(coordinator=coordinator, mprn=mprn),
+        LatestReadingTimeSensor(coordinator=coordinator, mprn=mprn),
         ApiStatusSensor(coordinator=coordinator, mprn=mprn),
         DataAgeSensor(coordinator=coordinator, mprn=mprn),
         CircuitBreakerStatusSensor(coordinator=coordinator, mprn=mprn),
@@ -349,6 +350,51 @@ class LastUpdateSensor(SensorEntity):
         if self.coordinator.last_successful_update_time is None:
             return None
         return self.coordinator.last_successful_update_time.isoformat()
+
+
+class LatestReadingTimeSensor(SensorEntity):
+    """Sensor for the timestamp of the most recent meter reading in the CSV data."""
+
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_state_class = None
+    _attr_native_unit_of_measurement = None
+    _attr_icon = "mdi:calendar-clock"
+
+    def __init__(self, *, coordinator: ESBDataUpdateCoordinator, mprn: str) -> None:
+        """Initialize the sensor."""
+        super().__init__()
+        self.coordinator = coordinator
+        self._mprn = mprn
+        self._attr_name = "ESB Smart Meter: Latest Reading"
+        self._attr_unique_id = f"{mprn}_latest_reading_time"
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return device information about this entity."""
+        return DeviceInfo(
+            identifiers={(DOMAIN, self._mprn)},
+            name=f"ESB Smart Meter ({self._mprn})",
+            manufacturer=MANUFACTURER,
+            model=MODEL,
+        )
+
+    async def async_added_to_hass(self) -> None:
+        """When entity is added to hass."""
+        self.async_on_remove(self.coordinator.async_add_listener(self._handle_coordinator_update))
+
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        self.async_write_ha_state()
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the timestamp of the most recent reading in the CSV."""
+        if self.coordinator.data is None:
+            return None
+        latest = self.coordinator.data.latest_reading_time
+        if latest is None:
+            return None
+        return latest.isoformat()
 
 
 class ApiStatusSensor(SensorEntity):

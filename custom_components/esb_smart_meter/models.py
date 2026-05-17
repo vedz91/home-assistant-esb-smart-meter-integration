@@ -157,3 +157,9 @@ class ESBData:
     def exported_last_30_days(self) -> float:
         """Get last 30 days of grid export."""
         return self.__sum_since(self._export_data, datetime.now() - timedelta(days=30))
+
+    @property
+    def latest_reading_time(self) -> datetime | None:
+        """Return the timestamp of the most recent meter reading in the CSV."""
+        all_timestamps = [ts for ts, _ in self._import_data] + [ts for ts, _ in self._export_data]
+        return max(all_timestamps) if all_timestamps else None
