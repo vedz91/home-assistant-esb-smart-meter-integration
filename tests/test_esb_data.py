@@ -199,3 +199,112 @@ class TestESBData:
         # Should only have the valid row
         assert len(esb_data._data) == 1
         assert esb_data.today == 5.0
+
+    def test_esb_data_partitions_import_and_export(self):
+        """Import and export rows are tracked in separate datasets."""
+        now = datetime.now()
+        today_str = now.strftime("%d-%m-%Y %H:%M")
+
+        data = [
+            {"Read Date and End Time": today_str, "Read Value": "2.5", "Read Type": "Active Import"},
+            {"Read Date and End Time": today_str, "Read Value": "1.0", "Read Type": "Active Export"},
+            {"Read Date and End Time": today_str, "Read Value": "3.5", "Read Type": "Active Import"},
+            {"Read Date and End Time": today_str, "Read Value": "0.5", "Read Type": "Active Export"},
+        ]
+
+        esb_data = ESBData(data=data)
+
+        assert esb_data.today == 6.0  # 2.5 + 3.5 (import only)
+        assert esb_data.exported_today == 1.5  # 1.0 + 0.5 (export only)
+
+    def test_esb_data_matches_read_type_by_substring(self):
+        """Real ESB CSVs use 'Active Import Interval (kW)' / 'Active Export Interval (kW)'."""
+        now = datetime.now()
+        today_str = now.strftime("%d-%m-%Y %H:%M")
+
+        data = [
+            {
+                "Read Date and End Time": today_str,
+                "Read Value": "0.188",
+                "Read Type": "Active Import Interval (kW)",
+            },
+            {
+                "Read Date and End Time": today_str,
+                "Read Value": "0.250",
+                "Read Type": "Active Export Interval (kW)",
+            },
+        ]
+
+        esb_data = ESBData(data=data)
+
+        assert esb_data.today == 0.188
+        assert esb_data.exported_today == 0.250
+
+    def test_esb_data_missing_read_type_treated_as_import(self):
+        """Rows without a Read Type column default to import for backwards compat."""
+        now = datetime.now()
+        today_str = now.strftime("%d-%m-%Y %H:%M")
+
+        data = [
+            {"Read Date and End Time": today_str, "Read Value": "4.0"},
+        ]
+
+        esb_data = ESBData(data=data)
+
+        assert esb_data.today == 4.0
+        assert esb_data.exported_today == 0.0
+
+    def test_esb_data_export_time_buckets(self):
+        """All six exported_* time buckets compute correctly from export rows."""
+        now = datetime.now()
+        week_start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=now.weekday())
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        data = [
+            # Today (also in week and month)
+            {
+                "Read Date and End Time": now.strftime("%d-%m-%Y %H:%M"),
+                "Read Value": "1.0",
+                "Read Type": "Active Export",
+            },
+            # 23 hours ago (in last_24_hours)
+            {
+                "Read Date and End Time": (now - timedelta(hours=23)).strftime("%d-%m-%Y %H:%M"),
+                "Read Value": "2.0",
+                "Read Type": "Active Export",
+            },
+            # Start of this week
+            {
+                "Read Date and End Time": week_start.strftime("%d-%m-%Y %H:%M"),
+                "Read Value": "3.0",
+                "Read Type": "Active Export",
+            },
+            # 6 days ago (in last_7_days and last_30_days)
+            {
+                "Read Date and End Time": (now - timedelta(days=6)).strftime("%d-%m-%Y %H:%M"),
+                "Read Value": "4.0",
+                "Read Type": "Active Export",
+            },
+            # Start of month
+            {
+                "Read Date and End Time": month_start.strftime("%d-%m-%Y %H:%M"),
+                "Read Value": "5.0",
+                "Read Type": "Active Export",
+            },
+            # Import row that must NOT count in any export property
+            {
+                "Read Date and End Time": now.strftime("%d-%m-%Y %H:%M"),
+                "Read Value": "999.0",
+                "Read Type": "Active Import",
+            },
+        ]
+
+        esb_data = ESBData(data=data)
+
+        # Export sums must exclude the 999.0 import row
+        assert esb_data.exported_today >= 1.0
+        assert esb_data.exported_last_24_hours >= 3.0  # 1.0 + 2.0
+        assert esb_data.exported_this_week >= 1.0  # at minimum today
+        assert esb_data.exported_last_7_days >= 7.0  # 1.0 + 2.0 + 4.0
+        assert esb_data.exported_this_month >= 6.0  # 1.0 + 5.0 at minimum
+        assert esb_data.exported_last_30_days >= 15.0  # all 5 export rows within 30d
