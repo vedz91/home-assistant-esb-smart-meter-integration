@@ -6,6 +6,8 @@
 
 A comprehensive Home Assistant integration for monitoring your electricity usage from ESB Networks Smart Meters in Ireland. Track your consumption across multiple time periods with automatic data retrieval and smart caching.
 
+> **Source:** This repository is a fork of [antoine-voiry's ESB Smart Meter integration](https://github.com/antoine-voiry/home-assistant-esb-smart-meter-integration), extended with grid export sensors and diagnostic sensors.
+>
 > **Credits:** Heavily inspired by [badger707's ESB automation](https://github.com/badger707/esb-smart-meter-reading-automation) and originally forked from [RobinJ1995's integration](https://github.com/RobinJ1995/home-assistant-esb-smart-meter-integration).
 
 ---
@@ -30,7 +32,7 @@ A comprehensive Home Assistant integration for monitoring your electricity usage
 
 ## ✨ Features
 
-- **📊 Six Time-Period Sensors**: Track usage for today, last 24 hours, this week, last 7 days, this month, and last 30 days
+- **📊 Seventeen Sensors**: Six consumption sensors, six grid export sensors (for microgen/solar accounts), and five diagnostic sensors
 - **🔄 Smart Caching**: Automatic data updates every 24 hours to minimize API calls and respect ESB's systems
 - **🔁 Robust Retry Logic**: 5 automatic retry attempts with 2-minute intervals on network failures
 - **⚡ Async Implementation**: Non-blocking async/await design using aiohttp for optimal Home Assistant performance
@@ -145,7 +147,9 @@ The integration validates:
 
 ## 📊 Sensors
 
-After successful setup, you'll have **six sensors** created under a single device:
+After successful setup, you'll have **seventeen sensors** created under a single device.
+
+### Electricity Consumption Sensors
 
 | Sensor Entity ID | Description | Time Period |
 |-----------------|-------------|-------------|
@@ -156,7 +160,30 @@ After successful setup, you'll have **six sensors** created under a single devic
 | `sensor.esb_electricity_usage_this_month` | Usage since 1st of this month | 1st 00:00 → now |
 | `sensor.esb_electricity_usage_last_30_days` | Rolling 30-day usage | Last 30 days |
 
-**All sensors report in kilowatt-hours (kWh)** with the `⚡` icon.
+**All consumption sensors report in kilowatt-hours (kWh)** with the `⚡` icon.
+
+### Grid Export Sensors (Microgen / Solar)
+
+These sensors track electricity exported back to the grid. They report `0` on non-microgen accounts.
+
+| Sensor Entity ID | Description | Time Period |
+|-----------------|-------------|-------------|
+| `sensor.esb_electricity_exported_today` | Export since midnight today | 00:00 today → now |
+| `sensor.esb_electricity_exported_last_24_hours` | Rolling 24-hour export | Last 24 hours |
+| `sensor.esb_electricity_exported_this_week` | Export since Monday this week | Monday 00:00 → now |
+| `sensor.esb_electricity_exported_last_7_days` | Rolling 7-day export | Last 7 days |
+| `sensor.esb_electricity_exported_this_month` | Export since 1st of this month | 1st 00:00 → now |
+| `sensor.esb_electricity_exported_last_30_days` | Rolling 30-day export | Last 30 days |
+
+### Diagnostic Sensors
+
+| Sensor Entity ID | Description | Unit |
+|-----------------|-------------|------|
+| `sensor.esb_smart_meter_last_update` | Timestamp of the last successful data refresh | Timestamp |
+| `sensor.esb_smart_meter_latest_reading` | Timestamp of the most recent meter reading in the downloaded data | Timestamp |
+| `sensor.esb_smart_meter_api_status` | Current API connectivity status (`online` / `error` / `unknown`) | — |
+| `sensor.esb_smart_meter_data_age` | Hours since the last successful data refresh | h |
+| `sensor.esb_smart_meter_circuit_breaker_status` | Circuit breaker state (`closed` / `open` / `half_open`). Includes failure count, daily attempt count, and backoff time as attributes | — |
 
 ### Device Information
 
@@ -531,6 +558,7 @@ This project is licensed under the terms specified in the [LICENSE](LICENSE) fil
 
 ## 🙏 Acknowledgments
 
+- **[antoine-voiry](https://github.com/antoine-voiry/home-assistant-esb-smart-meter-integration)** - Upstream integration this fork is based on
 - **[badger707](https://github.com/badger707/esb-smart-meter-reading-automation)** - Original automation inspiration
 - **[RobinJ1995](https://github.com/RobinJ1995/home-assistant-esb-smart-meter-integration)** - Original integration fork
 - **ESB Networks** - For providing smart meter infrastructure
