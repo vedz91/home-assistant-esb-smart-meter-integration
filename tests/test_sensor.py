@@ -13,6 +13,8 @@ from custom_components.esb_smart_meter.models import ESBData
 from custom_components.esb_smart_meter.sensor import (
     ApiStatusSensor,
     CircuitBreakerStatusSensor,
+    CurrentExportSensor,
+    CurrentImportSensor,
     DataAgeSensor,
     ExportedLast7DaysSensor,
     ExportedLast24HoursSensor,
@@ -24,6 +26,7 @@ from custom_components.esb_smart_meter.sensor import (
     Last24HoursSensor,
     Last30DaysSensor,
     LastUpdateSensor,
+    LatestReadingTimeSensor,
     ThisMonthSensor,
     ThisWeekSensor,
     TodaySensor,
@@ -82,35 +85,39 @@ class TestAsyncSetupEntry:
 
     @pytest.mark.asyncio
     async def test_setup_entry_creates_all_sensors(self, mock_hass, mock_config_entry):
-        """Test that setup_entry creates all 16 sensors."""
+        """Test that setup_entry creates all 19 sensors."""
         async_add_entities = MagicMock()
 
         await async_setup_entry(mock_hass, mock_config_entry, async_add_entities)
 
-        # Verify 16 sensors were created (6 import + 6 export + 4 diagnostic)
+        # Verify 19 sensors were created (6 import aggregates + 2 current interval + 6 export + 5 diagnostic)
         assert async_add_entities.called
         sensors = async_add_entities.call_args[0][0]
-        assert len(sensors) == 16
+        assert len(sensors) == 19
 
-        # Consumption sensors
+        # Consumption aggregate sensors
         assert isinstance(sensors[0], TodaySensor)
         assert isinstance(sensors[1], Last24HoursSensor)
         assert isinstance(sensors[2], ThisWeekSensor)
         assert isinstance(sensors[3], Last7DaysSensor)
         assert isinstance(sensors[4], ThisMonthSensor)
         assert isinstance(sensors[5], Last30DaysSensor)
-        # Grid export sensors
-        assert isinstance(sensors[6], ExportedTodaySensor)
-        assert isinstance(sensors[7], ExportedLast24HoursSensor)
-        assert isinstance(sensors[8], ExportedThisWeekSensor)
-        assert isinstance(sensors[9], ExportedLast7DaysSensor)
-        assert isinstance(sensors[10], ExportedThisMonthSensor)
-        assert isinstance(sensors[11], ExportedLast30DaysSensor)
+        # Current interval sensors
+        assert isinstance(sensors[6], CurrentImportSensor)
+        assert isinstance(sensors[7], CurrentExportSensor)
+        # Grid export aggregate sensors
+        assert isinstance(sensors[8], ExportedTodaySensor)
+        assert isinstance(sensors[9], ExportedLast24HoursSensor)
+        assert isinstance(sensors[10], ExportedThisWeekSensor)
+        assert isinstance(sensors[11], ExportedLast7DaysSensor)
+        assert isinstance(sensors[12], ExportedThisMonthSensor)
+        assert isinstance(sensors[13], ExportedLast30DaysSensor)
         # Diagnostic sensors
-        assert isinstance(sensors[12], LastUpdateSensor)
-        assert isinstance(sensors[13], ApiStatusSensor)
-        assert isinstance(sensors[14], DataAgeSensor)
-        assert isinstance(sensors[15], CircuitBreakerStatusSensor)
+        assert isinstance(sensors[14], LastUpdateSensor)
+        assert isinstance(sensors[15], LatestReadingTimeSensor)
+        assert isinstance(sensors[16], ApiStatusSensor)
+        assert isinstance(sensors[17], DataAgeSensor)
+        assert isinstance(sensors[18], CircuitBreakerStatusSensor)
 
 
 class TestBaseSensor:
@@ -351,6 +358,62 @@ class TestExportedSensors:
         esb_data = MagicMock()
         setattr(esb_data, data_attr, value)
         assert sensor._get_data(esb_data=esb_data) == value
+
+
+class TestCurrentImportSensor:
+    """Test CurrentImportSensor class."""
+
+    @pytest.fixture
+    def mock_coordinator(self):
+        """Create mock coordinator."""
+        return MagicMock(spec=DataUpdateCoordinator)
+
+    def test_unique_id(self, mock_coordinator):
+        """Test Current Import sensor unique ID."""
+        sensor = CurrentImportSensor(coordinator=mock_coordinator, mprn="12345678901")
+        assert sensor._attr_unique_id == "12345678901_usage_now"
+
+    def test_get_data(self, mock_coordinator):
+        """Test Current Import sensor gets current_import from ESBData."""
+        sensor = CurrentImportSensor(coordinator=mock_coordinator, mprn="12345678901")
+        esb_data = MagicMock()
+        esb_data.current_import = 0.264
+        assert sensor._get_data(esb_data=esb_data) == 0.264
+
+    def test_native_value_none_when_no_data(self):
+        """Test Current Import sensor returns None when coordinator has no data."""
+        coordinator = MagicMock(spec=DataUpdateCoordinator)
+        coordinator.data = None
+        sensor = CurrentImportSensor(coordinator=coordinator, mprn="12345678901")
+        assert sensor.native_value is None
+
+
+class TestCurrentExportSensor:
+    """Test CurrentExportSensor class."""
+
+    @pytest.fixture
+    def mock_coordinator(self):
+        """Create mock coordinator."""
+        return MagicMock(spec=DataUpdateCoordinator)
+
+    def test_unique_id(self, mock_coordinator):
+        """Test Current Export sensor unique ID."""
+        sensor = CurrentExportSensor(coordinator=mock_coordinator, mprn="12345678901")
+        assert sensor._attr_unique_id == "12345678901_export_now"
+
+    def test_get_data(self, mock_coordinator):
+        """Test Current Export sensor gets current_export from ESBData."""
+        sensor = CurrentExportSensor(coordinator=mock_coordinator, mprn="12345678901")
+        esb_data = MagicMock()
+        esb_data.current_export = 0.050
+        assert sensor._get_data(esb_data=esb_data) == 0.050
+
+    def test_native_value_none_when_no_data(self):
+        """Test Current Export sensor returns None when coordinator has no data."""
+        coordinator = MagicMock(spec=DataUpdateCoordinator)
+        coordinator.data = None
+        sensor = CurrentExportSensor(coordinator=coordinator, mprn="12345678901")
+        assert sensor.native_value is None
 
 
 class TestLastUpdateSensor:
