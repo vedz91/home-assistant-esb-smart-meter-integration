@@ -14,6 +14,8 @@ from .const import CAPTCHA_NOTIFICATION_ID, DEFAULT_SCAN_INTERVAL, DOMAIN, ESB_M
 from .models import ESBData
 from .session_manager import CaptchaRequiredException
 
+_HISTORICAL_DAYS = 15
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -104,6 +106,9 @@ class ESBDataUpdateCoordinator(DataUpdateCoordinator[ESBData]):
             # Update the last successful update time
             self.last_successful_update_time = datetime.now(timezone.utc)
 
+            # Inject 15 days of historical statistics into HA recorder
+            self._inject_historical_statistics(esb_data)
+
             return esb_data
 
         except CaptchaRequiredException as err:
@@ -145,6 +150,52 @@ class ESBDataUpdateCoordinator(DataUpdateCoordinator[ESBData]):
                 exc_info=True,
             )
             raise UpdateFailed(f"Unexpected error: {err}") from err
+
+    def _inject_historical_statistics(self, esb_data: ESBData) -> None:
+        """Inject the last 15 days of interval data into HA's long-term statistics.
+
+        Statistics are stored under external statistic IDs:
+          esb_smart_meter:{mprn}_import
+          esb_smart_meter:{mprn}_export
+        These can be added to the Energy Dashboard as individual device sources.
+        """
+        try:
+            from homeassistant.components.recorder.models import StatisticData, StatisticMetaData
+            from homeassistant.components.recorder.statistics import async_import_statistics
+        except ImportError:
+            _LOGGER.debug("Recorder not available; skipping historical statistics injection")
+            return
+
+        import_history, export_history = esb_data.get_history_since(_HISTORICAL_DAYS)
+
+        for suffix, history in (("import", import_history), ("export", export_history)):
+            if not history:
+                continue
+
+            statistic_id = f"{DOMAIN}:{self.mprn}_{suffix}"
+            metadata = StatisticMetaData(
+                has_mean=False,
+                has_sum=True,
+                name=f"ESB Electricity {suffix.capitalize()} ({self.mprn})",
+                source=DOMAIN,
+                statistic_id=statistic_id,
+                unit_of_measurement="kWh",
+            )
+
+            cumulative: float = 0.0
+            stats: list[StatisticData] = []
+            for timestamp, value in history:
+                cumulative += value
+                utc_ts = timestamp.replace(tzinfo=timezone.utc) if timestamp.tzinfo is None else timestamp
+                stats.append(StatisticData(start=utc_ts, state=value, sum=cumulative))
+
+            async_import_statistics(self.hass, metadata, stats)
+            _LOGGER.debug(
+                "Injected %d statistics entries for %s (%s)",
+                len(stats),
+                statistic_id,
+                suffix,
+            )
 
     async def _send_captcha_notification(self) -> None:
         """Send a persistent notification and create a repair issue when CAPTCHA is detected."""
