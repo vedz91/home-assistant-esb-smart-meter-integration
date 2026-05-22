@@ -172,11 +172,25 @@ class ESBData:
         return max(self._import_data, key=lambda x: x[0])[1]
 
     @property
+    def current_import_time(self) -> datetime | None:
+        """Return the timestamp of the most recent import interval."""
+        if not self._import_data:
+            return None
+        return max(self._import_data, key=lambda x: x[0])[0]
+
+    @property
     def current_export(self) -> float | None:
         """Return the most recent export interval value (kWh)."""
         if not self._export_data:
             return None
         return max(self._export_data, key=lambda x: x[0])[1]
+
+    @property
+    def current_export_time(self) -> datetime | None:
+        """Return the timestamp of the most recent export interval."""
+        if not self._export_data:
+            return None
+        return max(self._export_data, key=lambda x: x[0])[0]
 
     def get_history_since(self, days: int) -> tuple[list[tuple[datetime, float]], list[tuple[datetime, float]]]:
         """Return (import_data, export_data) sorted ascending for the last N days."""
