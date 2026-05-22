@@ -2,7 +2,7 @@
 
 import logging
 from abc import abstractmethod
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
@@ -208,7 +208,6 @@ class Last30DaysSensor(BaseSensor):
 class CurrentImportSensor(BaseSensor):
     """Most recent 30-minute import interval reading (kWh)."""
 
-    _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:lightning-bolt"
 
     def __init__(self, *, coordinator: ESBDataUpdateCoordinator, mprn: str) -> None:
@@ -224,11 +223,21 @@ class CurrentImportSensor(BaseSensor):
         """Get the most recent import interval value."""
         return esb_data.current_import
 
+    @property
+    def last_reset(self) -> datetime | None:
+        """Return the start of the current 30-minute interval."""
+        if self.coordinator.data is None:
+            return None
+        ts = self.coordinator.data.current_import_time
+        if ts is None:
+            return None
+        interval_start = ts - timedelta(minutes=30)
+        return interval_start.replace(tzinfo=timezone.utc) if interval_start.tzinfo is None else interval_start
+
 
 class CurrentExportSensor(BaseSensor):
     """Most recent 30-minute export interval reading (kWh)."""
 
-    _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:transmission-tower-export"
 
     def __init__(self, *, coordinator: ESBDataUpdateCoordinator, mprn: str) -> None:
@@ -243,6 +252,17 @@ class CurrentExportSensor(BaseSensor):
     def _get_data(self, *, esb_data: ESBData) -> float | None:
         """Get the most recent export interval value."""
         return esb_data.current_export
+
+    @property
+    def last_reset(self) -> datetime | None:
+        """Return the start of the current 30-minute interval."""
+        if self.coordinator.data is None:
+            return None
+        ts = self.coordinator.data.current_export_time
+        if ts is None:
+            return None
+        interval_start = ts - timedelta(minutes=30)
+        return interval_start.replace(tzinfo=timezone.utc) if interval_start.tzinfo is None else interval_start
 
 
 class BaseExportedSensor(BaseSensor):
