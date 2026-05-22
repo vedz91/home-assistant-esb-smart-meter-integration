@@ -163,3 +163,24 @@ class ESBData:
         """Return the timestamp of the most recent meter reading in the CSV."""
         all_timestamps = [ts for ts, _ in self._import_data] + [ts for ts, _ in self._export_data]
         return max(all_timestamps) if all_timestamps else None
+
+    @property
+    def current_import(self) -> float | None:
+        """Return the most recent import interval value (kWh)."""
+        if not self._import_data:
+            return None
+        return max(self._import_data, key=lambda x: x[0])[1]
+
+    @property
+    def current_export(self) -> float | None:
+        """Return the most recent export interval value (kWh)."""
+        if not self._export_data:
+            return None
+        return max(self._export_data, key=lambda x: x[0])[1]
+
+    def get_history_since(self, days: int) -> tuple[list[tuple[datetime, float]], list[tuple[datetime, float]]]:
+        """Return (import_data, export_data) sorted ascending for the last N days."""
+        cutoff = datetime.now() - timedelta(days=days)
+        imp = sorted([(ts, v) for ts, v in self._import_data if ts >= cutoff], key=lambda x: x[0])
+        exp = sorted([(ts, v) for ts, v in self._export_data if ts >= cutoff], key=lambda x: x[0])
+        return imp, exp
