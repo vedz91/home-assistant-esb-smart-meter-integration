@@ -37,6 +37,9 @@ async def async_setup_entry(
         Last7DaysSensor(coordinator=coordinator, mprn=mprn),
         ThisMonthSensor(coordinator=coordinator, mprn=mprn),
         Last30DaysSensor(coordinator=coordinator, mprn=mprn),
+        # Current interval sensors (most recent 30-min reading)
+        CurrentImportSensor(coordinator=coordinator, mprn=mprn),
+        CurrentExportSensor(coordinator=coordinator, mprn=mprn),
         # Grid export sensors (for microgen/solar accounts)
         ExportedTodaySensor(coordinator=coordinator, mprn=mprn),
         ExportedLast24HoursSensor(coordinator=coordinator, mprn=mprn),
@@ -200,6 +203,46 @@ class Last30DaysSensor(BaseSensor):
     def _get_data(self, *, esb_data: ESBData) -> float:
         """Get last 30 days data."""
         return esb_data.last_30_days
+
+
+class CurrentImportSensor(BaseSensor):
+    """Most recent 30-minute import interval reading (kWh)."""
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:lightning-bolt"
+
+    def __init__(self, *, coordinator: ESBDataUpdateCoordinator, mprn: str) -> None:
+        """Initialize the sensor."""
+        super().__init__(
+            coordinator=coordinator,
+            mprn=mprn,
+            name="ESB Electricity Usage: Now",
+        )
+        self._attr_unique_id = f"{mprn}_usage_now"
+
+    def _get_data(self, *, esb_data: ESBData) -> float | None:
+        """Get the most recent import interval value."""
+        return esb_data.current_import
+
+
+class CurrentExportSensor(BaseSensor):
+    """Most recent 30-minute export interval reading (kWh)."""
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:transmission-tower-export"
+
+    def __init__(self, *, coordinator: ESBDataUpdateCoordinator, mprn: str) -> None:
+        """Initialize the sensor."""
+        super().__init__(
+            coordinator=coordinator,
+            mprn=mprn,
+            name="ESB Electricity Export: Now",
+        )
+        self._attr_unique_id = f"{mprn}_export_now"
+
+    def _get_data(self, *, esb_data: ESBData) -> float | None:
+        """Get the most recent export interval value."""
+        return esb_data.current_export
 
 
 class BaseExportedSensor(BaseSensor):
