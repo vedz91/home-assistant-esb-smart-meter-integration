@@ -335,3 +335,78 @@ class TestESBData:
         """latest_reading_time returns None when there is no data."""
         esb_data = ESBData(data=[])
         assert esb_data.latest_reading_time is None
+
+    def test_current_import_returns_most_recent_value(self):
+        """current_import returns the value from the latest import timestamp."""
+        now = datetime.now().replace(second=0, microsecond=0)
+        older = now - timedelta(hours=1)
+        data = [
+            {"Read Date and End Time": older.strftime("%d-%m-%Y %H:%M"), "Read Value": "0.150", "Read Type": "Active Import Interval (kW)"},
+            {"Read Date and End Time": now.strftime("%d-%m-%Y %H:%M"), "Read Value": "0.264", "Read Type": "Active Import Interval (kW)"},
+        ]
+        esb_data = ESBData(data=data)
+        assert esb_data.current_import == 0.264
+
+    def test_current_import_returns_none_when_empty(self):
+        """current_import returns None when there are no import rows."""
+        data = [
+            {"Read Date and End Time": datetime.now().strftime("%d-%m-%Y %H:%M"), "Read Value": "0.5", "Read Type": "Active Export Interval (kW)"},
+        ]
+        esb_data = ESBData(data=data)
+        assert esb_data.current_import is None
+
+    def test_current_export_returns_most_recent_value(self):
+        """current_export returns the value from the latest export timestamp."""
+        now = datetime.now().replace(second=0, microsecond=0)
+        older = now - timedelta(hours=1)
+        data = [
+            {"Read Date and End Time": older.strftime("%d-%m-%Y %H:%M"), "Read Value": "0.100", "Read Type": "Active Export Interval (kW)"},
+            {"Read Date and End Time": now.strftime("%d-%m-%Y %H:%M"), "Read Value": "0.333", "Read Type": "Active Export Interval (kW)"},
+        ]
+        esb_data = ESBData(data=data)
+        assert esb_data.current_export == 0.333
+
+    def test_current_export_returns_none_when_empty(self):
+        """current_export returns None when there are no export rows."""
+        esb_data = ESBData(data=[])
+        assert esb_data.current_export is None
+
+    def test_get_history_since_filters_by_days(self):
+        """get_history_since returns only rows within the last N days."""
+        now = datetime.now().replace(second=0, microsecond=0)
+        data = [
+            {"Read Date and End Time": (now - timedelta(days=10)).strftime("%d-%m-%Y %H:%M"), "Read Value": "1.0", "Read Type": "Active Import Interval (kW)"},
+            {"Read Date and End Time": (now - timedelta(days=16)).strftime("%d-%m-%Y %H:%M"), "Read Value": "2.0", "Read Type": "Active Import Interval (kW)"},
+        ]
+        esb_data = ESBData(data=data)
+        imp, exp = esb_data.get_history_since(15)
+        assert len(imp) == 1
+        assert imp[0][1] == 1.0
+        assert len(exp) == 0
+
+    def test_get_history_since_returns_sorted_ascending(self):
+        """get_history_since returns data sorted by timestamp ascending."""
+        now = datetime.now().replace(second=0, microsecond=0)
+        data = [
+            {"Read Date and End Time": now.strftime("%d-%m-%Y %H:%M"), "Read Value": "0.3", "Read Type": "Active Import Interval (kW)"},
+            {"Read Date and End Time": (now - timedelta(hours=1)).strftime("%d-%m-%Y %H:%M"), "Read Value": "0.1", "Read Type": "Active Import Interval (kW)"},
+            {"Read Date and End Time": (now - timedelta(hours=2)).strftime("%d-%m-%Y %H:%M"), "Read Value": "0.2", "Read Type": "Active Import Interval (kW)"},
+        ]
+        esb_data = ESBData(data=data)
+        imp, _ = esb_data.get_history_since(15)
+        values = [v for _, v in imp]
+        assert values == [0.2, 0.1, 0.3]
+
+    def test_get_history_since_separates_import_and_export(self):
+        """get_history_since returns import and export in separate lists."""
+        now = datetime.now().replace(second=0, microsecond=0)
+        data = [
+            {"Read Date and End Time": now.strftime("%d-%m-%Y %H:%M"), "Read Value": "0.188", "Read Type": "Active Import Interval (kW)"},
+            {"Read Date and End Time": now.strftime("%d-%m-%Y %H:%M"), "Read Value": "0.050", "Read Type": "Active Export Interval (kW)"},
+        ]
+        esb_data = ESBData(data=data)
+        imp, exp = esb_data.get_history_since(15)
+        assert len(imp) == 1
+        assert len(exp) == 1
+        assert imp[0][1] == 0.188
+        assert exp[0][1] == 0.050
